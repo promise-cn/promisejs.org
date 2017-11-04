@@ -1,30 +1,22 @@
 @title
   @primary
-    Patterns
+    用法
   @secondary
-    by Forbes Lindesay
+    Forbes Lindesay 作
+    Cheng Liu 译
 
-##[intro] Introduction
+##[intro] 基本介绍
 
-We've seen how even just doing two simple operations one after another can get extremely
-complex when considering error handling in asynchronous code. We've also seen how promises
-help you mitigate this via `.then`, which causes errors to bubble up the stack by
-default.
-
-In this article we'll cover some of the more advanced patterns for promise use and some of
-the helper methods to make your Promise code more concise.
+我们已经见识到了当你想在异步执行的代码中做错误处理的复杂之处。我们也看到通过使用 promise 中的 `.then` 方法能帮减轻这些痛苦。 在这篇文章中，我们会涵盖一些 promise 的高级用法，以及辅助方法让你的代码更加精准。
 
 ##[resovle] Promise.resolve(value)
 
-Sometimes you already have a value and you want to convert it into a promise. You may also
-sometimes find yourself with a value that may or may not be a promise. Finally you might
-find you have a value that is a promise but does not work as it should (e.g. a jQuery promise)
-and want to convert it into a true promise.
+有时候，你仅仅只想让某个值转变成一个 promise 对象，又或者你当前的值并不确定是否是一个你所想的 promise，其执行行为会跟你认为的不一样（比如 jQuery 的 promise），最后，你会想把他们都转换成真正的 promise 。
 
 :js
   var value = 10;
   var promiseForValue = Promise.resolve(value);
-  // equivalent to
+  // 等价于
   var promiseForValue = new Promise(function (fulfill) {
     fulfill(value);
   });
@@ -32,7 +24,7 @@ and want to convert it into a true promise.
 :js
   var jQueryPromise = $.ajax('/ajax-endpoint');
   var realPromise = Promise.resolve(jQueryPromise);
-  // equivalent to
+  // 等价于
   var realPromise = new Promise(function (fulfill, reject) {
     jQueryPromise.then(fulfill, reject);
   });
@@ -40,7 +32,7 @@ and want to convert it into a true promise.
 :js
   var maybePromise = Math.random() > 0.5 ? 10 : Promise.resolve(10);
   var definitelyPromise = Promise.resolve(maybePromise);
-  // equivalent to
+  // 等价于
   var definitelyPromise = new Promise(function (fulfill, reject) {
     if (isPromise(maybePromise)) {
       maybePromise.then(fulfill, reject);
@@ -51,23 +43,18 @@ and want to convert it into a true promise.
 
 ##[reject] Promise.reject
 
-It's best to always avoid throwing synchronous exceptions in an asychronous method. Always
-returning a promise has the benefit that people can always handle all errors in the same
-consistent way. To make it easier to do this, there is a shortcut for generating a rejected
-promise.
+最好是能够避免在异步执行的方法中抛出一个同步的异常。总是返回一个 promise 对象的好处就是你可以用一种相同的方式来做异常处理的环节。为了实现这个目的，就有一个快捷方式来生成会抛出错误的 promise 。
 
 :js
   var rejectedPromise = Promise.reject(new Error('Whatever'));
-  // equivalent to
+  // 等价于
   var rejectedPromise = new Promise(function (fulfill, reject) {
     reject(new Error('Whatever'));
   });
 
 ##[parallel] Parallel operations
 
-Trying to do this in parallel only gets more complicated.  Consider the following function
-which attempts to read an array of files (specified by filename) and parse them as JSON then
-returns the resulting array via a callback:
+并发执行一些方法总是会让代码写得特别复杂。下面的代码尝试读取一系列的文件（给定文件名），然后抓取成 JSON 格式，最后回调一个结果数组。
 
 :js
   function readJsonFiles(filenames, callback) {
@@ -75,11 +62,9 @@ returns the resulting array via a callback:
     var called = false;
     var results = [];
     if (pending === 0) {
-      // we need to return early in the case where there
-      // are no files to read, but we must not return immediately
-      // because that unleashes "Zalgo". This makes code very hard
-      // to reason about as the order becomes increasingly
-      // non-deterministic.
+      // 当没有文件需要被读取时，我们应该提前结束。
+      // 但是，如果我们此时立即返回，就成为了同步执行的代码，会破坏原本设想的执行顺序，程序就会有不确定性。
+      // 所以，这里增加了 setTimeout，伪装成了异步代码，并尽早返回。
       return setTimeout(function () { callback(); }, 0);
     }
     filenames.forEach(function (filename, index) {
@@ -96,28 +81,29 @@ returns the resulting array via a callback:
     });
   }
 
-That's a maddening amount of code to have to write for such a simple asynchronous function.
-It is possible to write most of this into a library function that lets you do an asynchronous
-"map" operation, but that only solves the very specific case, and can still be remarkably fiddly.
+写一个这么简单的异步函数就要用这么惊人的代码量。这段代码可以写成库函数来，来实现一个异步的 map 操作，但是这样如此繁琐的写法却只能解决了某部分特殊的情况。
 
 ##[all] Promise.all
 
-The `all` function returns a new promise which is fulfilled with an array of fulfillment
-values for the passed promises or rejects with the reason of the first promise that rejects.
+参数：
+  1. 需要执行的 promise 的数组
+
+返回：
+  1. 一个崭新的 promise ，并且将所有 promise 执行结果组成数组传入
+  2. 如果其中某个 promise 执行异常，则会将第一个抛出的异常传入进行异常处理
 
 :js
   function readJsonFiles(filenames) {
-    // N.B. passing readJSON as a function, not calling it with `()`
+    // 特别注意这里传入的 readJSON 是一个函数，并不是调用该函数后的执行结果
     return Promise.all(filenames.map(readJSON));
   }
   readJsonFiles(['a.json', 'b.json']).done(function (results) {
-    // results is an array of the values stored in a.json and b.json
+    // results 是 a.json，b.json 中的值组成的数组
   }, function (err) {
-    // If any of the files fails to be read, err is the first error
+    // 读取任何文件失败时，err 代表了第一个错误
   });
 
-`Promise.all` is a builtin method, so you don't need to worry about implementing it
-yourself, but it serves as a nice demo of how easy promises are to work with.
+`Promise.all` 是一个内置方法，所以你无需担心要自己实现他， 更何况这个示例展示了 promise 的简约之美
 
 :js
   function all(promises) {
@@ -135,22 +121,15 @@ yourself, but it serves as a nice demo of how easy promises are to work with.
     return ready.then(function () { return accumulator; });
   }
 
-What's going on here is that we start by creating a variable to store the result (called
-`accumulator`) and a variable to denote whether the result is up to date (called
-`ready`). We wait on `ready`, and also update it with each turn of the loop.
-This leads to us putting each `value` onto the `accumulator` array one at a time
-in order. By the end of the loop, `ready` is a promise that will wait for
-all the items to be inserted into the `accumulator` array.
+代码解读，我们先定义了一个值来存放结果（就叫他 `accumulator`），还有一个值用来追踪最新的结果（叫他 `ready`）。 在每次循环遍历传入的 promise 数组时更新 `ready`，并将执行结果按顺序的存放在 `accumulator` 中。 遍历完成后， `ready` 就成为了一个会等待所有传入的 promise 完成的 promise，而各个 promise 的执行结果又会被存放到 `accumulator`。
 
-All we have to do at the end is wait for the `ready` promise and then return `accumulator`.
+我们现在就只是等待 `ready` promise 执行完成，再返回给我们 `accumulatro`。
 
-The native implementation will be more efficient than this, but it should give you an idea
-of how promises can be combined in interesting ways.
+原生的实现会比这个示例运行效率更好，不过这个例子告诉了你 promise 是用一种怎样有趣的方式链接起来。
 
 ##[race] Promise.race
 
-Sometimes it is useful to race two promises against each other. Consider the case of writing a timeout
-function.  You could do something like this:
+有些应用场景需要两个 promise 互相竞争。来看下面的应用场景，实现一个超时方法。
 
 :js
   function delay(time) {
@@ -160,7 +139,7 @@ function.  You could do something like this:
   }
   function timeout(promise, time) {
     return new Promise(function (fulfill, reject) {
-      // race promise against delay
+      // 跟 delay promise 进行竞争
       promise.then(fulfill, reject);
       delay(time).done(function () {
         reject(new Error('Operation timed out'));
@@ -168,7 +147,7 @@ function.  You could do something like this:
     });
   }
 
-Promise.race makes races like this even easier to run:
+Promise.race 使这样的竞争写起来更简单。
 
 :js
   function timeout(promise, time) {
@@ -177,17 +156,17 @@ Promise.race makes races like this even easier to run:
     })]);
   }
 
-Whichever promise settles (fulfills or rejects) first wins the race, and determines the result.
+无论哪个 promise 有了返回（不管成功或者失败），就会赢得竞争，决定返回的结果。
 
 ##[apendix] Further Reading
 
- - [Generators](/generators/) - learn how to use generators and promises together to make programming with promises really easy (in browsers with ES6 support)
- - [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) - The mozilla developer network has great documentation on promises.
- - [then/promise](https://github.com/then/promise) - An implementation of all these helper methods in JavaScript.
+ - [Generators](/generators/) - 学会如何同时用 generator 和 promise 让 promise 写起来更简单（在支持 ES6 特性的浏览器）
+ - [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) - mozilla 开发者社区关于 promise 的文档
+ - [then/promise](https://github.com/then/promise) - 所有这些辅助方法在 JavaScript 中的实现
 
 @pager
   @previous(href="/api/")
-    API Reference
+    API 指南
   @next(href="/generators/")
-    generators
+    生成器
 
