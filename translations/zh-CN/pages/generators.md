@@ -1,14 +1,13 @@
 @title
   @primary
-    Generators
+    生成器
   @secondary
-    by Forbes Lindesay
+    Forbes Lindesay 作
+    Cheng Liu 译
 
-##[intro] Introduction
+##[intro] 基本介绍
 
-One of the most exciting features introduced in ES6 is generators. Their primary use case is in
-representing lazy (possibly infinite) sequences. For example, the following function returns the
-first n positive integers.
+生成器是 ES6 规范中最激动人心的一个特性。 主要的应用场景是表述之后还会运行的执行步骤（可能是无限次地）。例如，下列的函数返回了前 n 个正整数。
 
 :js
   function count(n){
@@ -23,7 +22,7 @@ first n positive integers.
     console.log(x)
   }
 
-We can write a very similar function using generators, that returns all the positive integers.
+我们可以用生成器特性来实现相似功能，返回所有的正整数。
 
 :js
   function* count(){
@@ -36,18 +35,13 @@ We can write a very similar function using generators, that returns all the posi
     console.log(x)
   }
 
-What's actually going on here, is that the `count` function is being lazily evaluated,
-so it pauses at each `yield` and waits until another value is asked for. This means that
-the for/of loop will execute forever, continually getting the next integer in an infinite list.
+代码解读，`count` 函数在此处被用来惰性求值， 他会在每次 `yield` 时暂停，等待下一个值被请求。这意味着 for-of 循环会无限的执行下去，持续地打印出下一个整数。
 
-The reason this is so exciting, is that we can exploit the ability to pause a function in order
-to help us write asynchronous code. Specifically, this will allow us to do asynchronous things
-inside our existing control flow structures, such as loops, conditionals and try/catch blocks.
+真正让人兴奋的是，我们能从中看到生成器有能力有序地暂停函数执行，以此来帮助我们书写异步执行的代码。特别是， 生成器允许我们在已有的流程结构中，做一些异步的操作。（例如，循环、条件分支、try-catch 结构）
 
-What generators do **not** do is give us a way of representing the result of an asynchronous
-operation. For that, we need a promise.
+生成器**没有**提供一种能够表达异步操作结果的方式（成功或者失败）。为此，我们需要 promise 。
 
-The goal of this article is to teach you to be able to write code like:
+这篇文章的目的就是教会你能够像下面那样书写代码：
 
 :js
   var login = async(function* (username, password, session) {
@@ -59,16 +53,11 @@ The goal of this article is to teach you to be able to write code like:
     session.setUser(user);
   });
 
-Here the code reads just like it would if it were synchronous, but is in fact doing asynchronous
-work at each of the `yield` keywords. The result of calling the `login` function would
-be a promise.
+上述的代码阅读起来就好像是同步执行的代码，但实际上他在每次 `yield` 关键词的地方都在处理异步逻辑。调用 `login` 函数的结果将会是一个 promise 。
 
-##[fulfilling] How it works - Fulfilling
+##[fulfilling] 正常是如何运作的？
 
-As you saw in the introduction, we can pause to wait for a promise using the `yield` keyword.
-What we need now is a way to get fine control over that generator function so as to have it start
-again once the promise completes. Fortunately, it's possible to step through a generator function via
-the `.next` method.
+如你在基本介绍中所看到的那样，我们能够用 `yeild` 关键词来暂停函数的执行，并等待 promise 的执行。现在我们只需要一种能够更好的对生成器函数进行控制的方法，每当 promise 执行完成后，让生成器函数能够再执行一次。幸运的是，我们可以通过生成器的 `.next` 方法达到这个目的。
 
 :js
   function* demo() {
@@ -82,20 +71,15 @@ the `.next` method.
   // => {value: 10, done: false}
   var resB = d.next(32);
   // => {value: 42, done: true}
-  //if we call d.next() again it throws an error
+  // 此时再调用 next 方法就会抛出异常。
 
-What's happening here is that we call `d.next()` once to get it to the `yield`,
-and then when we call `d.next()` a second time, we give it a value that is the result
-of the `yield` expression.  The function can then move on to the `return` statement
-to return a final result.
+代码解读：我们先执行一次 `d.next()` 让生成器运行到 `yield` 的代码，然后我们再一次执行 `d.next()` 时，手动给定 `yield` 后表达式的结果。然后函数执行到了 `return` 的地方返回最终结果。
 
-We can use this, by calling `.next(result)` to signal that a promise has been fulfilled
-with result.
+我们可以利用这个特点，通过调用 `.next(result)` 的方式表述一个 promise 对象是执行成功的。
 
-##[rejecting] How it works - Rejecting
+##[rejecting] 异常是如何运作的？
 
-We also need a way to represent a promise that's been yielded being rejected. We can use the
-`.throw(error)` method on the generator to do this.
+我们也需要一种方式来表述一个 promise 对象，在被生成器调用时抛出了异常。这就需要在生成器中调用 `.throw(error)` 方法来完成。
 
 :js
   var sentinel = new Error('foo');
@@ -112,15 +96,11 @@ We also need a way to represent a promise that's been yielded being rejected. We
   // => {value: 10, done: false}
   d.throw(sentinel);
 
-Like before, we call `d.next()` to get to the first `yield` keyword. We can then
-signal rejection using `d.throw(error)`, which causes the generator to act as though
-`yield` throw an error. In our example, this will trigger the `catch` block.
+就如之前说的那样，我们调用 `d.next()` 运行到了第一个 `yield` 关键词。然后调用 `d.throw(error)` 表示我们代码执行失败的状态，这样就会让生成器表现得像是在 `yield` 的地方抛出了异常。在这个例子里，就会被 `catch` 块捕捉到。
 
-##[both] How it works - Putting it all together
+##[both] 结合使用正常与异常
 
-Putting all of this together, we just have to keep manually moving the generator forwards
-with the results of any promises it has yielded.  We can do that using a simple function
-like this one:
+把上述例子结合起来使用的话，我们只需要不断地手动将代码执行下去，让 promise 的结果来改变代码的流程。我们下面来看一个简单的实现。
 
 :js
   function async(makeGenerator){
@@ -146,23 +126,21 @@ like this one:
     }
   }
 
-Note how we use `Promise.resolve` to ensure we are always dealing with well behaved
-promises and we use `Promise.reject` along with a try/catch block to ensure that
-synchronous errors are always converted into asynchronous errors.
+注意，我们用到了 `Promise.resolve` 来确保我们总是能够使用我们所期望的 promise 对象，同时也用到了 `Promise.reject` 结合 try/catch 代码块来确保同步的异常错误总是被转化成异步的异常错误。
 
 ##[apendix] Further Reading
 
- - [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/function*) - The mozilla developer network has great documentation on generators.
- - [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) - The mozilla developer network has great documentation on promises.
- - [regenerator](http://facebook.github.io/regenerator/) - A project by Facebook to add generator support to older environments by cross-compiling the code.
- - [gnode](https://github.com/TooTallNate/gnode) - A command line applicaton to use regenerator to support generators in older versions of node.js
- - [then-yield](https://github.com/then/yield) - A library that provides functions for writing code that uses promises with generators.
- - [Task.js](http://taskjs.org/) - An alternative library for using promises with generators.
- - [YouTube](https://www.youtube.com/watch?v=qbKWsbJ76-s) - A video of my JSConf.eu talk that discusses many of the same things as appear in this article.
+ - [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/function*) - mozilla 开发者社区的生成器文档
+ - [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) - mozilla 开发者社区的 promise 文档
+ - [regenerator](http://facebook.github.io/regenerator/) - Facebook 关于增加生成器函数支持的项目
+ - [gnode](https://github.com/TooTallNate/gnode) - 使用 regenerator 项目来为以前版本的 node.js 提供生成器函数支持的命令行应用
+ - [then-yield](https://github.com/then/yield) - 配合生成器函数使用 promise 来撰写代码的库
+ - [Task.js](http://taskjs.org/) - 另一个结合生成器函数与 promise 使用的库
+ - [YouTube](https://www.youtube.com/watch?v=qbKWsbJ76-s) - 在 JSConf.eu 上这篇文章主旨思想讨论的视频
 
 @pager
   @previous(href="/patterns/")
-    patterns
+    用法
   @next(href="/implementing/")
-    implementing
+    实现
 
