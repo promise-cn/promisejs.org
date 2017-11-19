@@ -3,17 +3,17 @@
     API 指南
   @secondary
     Forbes Lindesay 作
-    Cheng Liu 译
+    刘诚 / 闫畅 译
 
 ## 方法
 
 ###[Promise_all] Promise.all(iterable)
 
 参数:
-  1 可遍历元素
+  1 iterable 对象
 
 返回:
-  一个 Promise 对象。等待 `iterable` 中所有的 promise 执行完毕后，生成出一个执行结果的数组（与传入的 `iterable` 顺序相同），再将该数组做为参数传给 Promise 对象、
+  一个 Promise 对象。等待 `iterable` 中所有的 promise 执行成功（fulfill）后，生成出一个执行结果的数组（与传入的 `iterable` 顺序相同），再将该数组做为参数传给 Promise 对象、
 
 :js-example
   var promise = Promise.resolve(3);
@@ -54,14 +54,15 @@
 
 ###[Promise_denodeify] Promise.denodeify(fn, length) @non-standard
 
-Some promise implementations provide a `.denodeify` method to make it easier to interoperate
-with node.js code.  It will add a `callback` to any calls to the function, and use that to
-fullfill or reject the promise.
+部分 promise 实现提供了一个 `.denodeify` 方法，使与 node.js 代码的交互操作变得更加容易。它会在 `fn` 上加上一个 `callback`，并通过它来 fulfill 或 reject 这个 promise。
 
-If the function returns a Promise, the state of that Promise will be used instead of the callback.
+参数：
+  1. 一个函数。如果该函数返回一个 promise，那么 `denodeify` 函数执行返回的结果将会使用这个 promise 的状态。
 
-If `length` is specified and more arguments are passed than `length`, the remaining arguments
-will not be passed down to fn.
+  2. length（可选）：传入函数 fn 的参数长度。如果提供了 `length` 这个参数，而且传入的参数超过了 `length`，那么超过部分的参数将不会被传入fn。
+
+返回：
+  promise
 
 :js-example
   var Promise = require('promise');
@@ -101,8 +102,11 @@ will not be passed down to fn.
 
 ###[Promise_race] Promise.race(iterable)
 
-Returns a promise that resolves or rejects as soon as any of the promises in `iterable` have
-been resolved or rejected (with the corresponding reason or value).
+参数：
+  1. iterable 对象
+
+返回：
+  promise，这个 promise 在 `iterable` 中任何一个 promise 成功完成（fulfill）或被中断（rejected）之后就会完成（resolve）。（并得到相应的返回值或错误原因）
 
 :js-example
   var p1 = new Promise(function(resolve, reject) {
@@ -114,7 +118,7 @@ been resolved or rejected (with the corresponding reason or value).
 
   Promise.race([p1, p2]).then(function(value) {
     console.log(value); // "two"
-    // Both resolve, but p2 is faster
+    // 两者都会完成（resolve），但是 p2 会快一些
   });
 
   var p3 = new Promise(function(resolve, reject) {
@@ -126,7 +130,7 @@ been resolved or rejected (with the corresponding reason or value).
 
   Promise.race([p3, p4]).then(function(value) {
     console.log(value); // "three"
-    // p3 is faster, so it resolves
+    // p3 更快，所以它会被 resolve
   }, function(reason) {
     // Not called
   });
@@ -139,10 +143,10 @@ been resolved or rejected (with the corresponding reason or value).
   });
 
   Promise.race([p5, p6]).then(function(value) {
-    // Not called
+    // 未被调用
   }, function(reason) {
     console.log(reason); // "six"
-    // p6 is faster, so it rejects
+    // p6 更快，所以 promise 会被中断
   });
 
 :js-polyfill
@@ -158,13 +162,13 @@ been resolved or rejected (with the corresponding reason or value).
 
 ###[Promise_reject] Promise.reject(reason)
 
-Returns a promise that is rejected with the given `reason`.
+返回一个 rejected promise，并得到相应的 `reason`
 
 :js-example
   Promise.reject(new Error("fail")).then(function(error) {
-    // not called
+    // 未被调用
   }, function(error) {
-    console.log(error); // Stacktrace
+    console.log(error); // 执行栈
   });
 
 :js-polyfill
@@ -176,17 +180,15 @@ Returns a promise that is rejected with the given `reason`.
 
 ###[Promise_resolve] Promise.resolve(value)
 
-Returns a promise that is resolved with the given `value`.
+返回一个带有相应值的，被 resolve 的 promise。
 
-If the `value` is a promise, then it is unwrapped so that the resulting promise adopts
-the state of the promise passed in as `value`.  This is useful for converting promises
-created by other libraries.
+如果传入的参数值是一个 promise，那么它会被更进一步解开（unwrapped），以便于返回的 promise 能够使用传入的 promise 的状态。这一点对于转化其他库实现的 promises 非常有帮助。
 
 :js-example
   Promise.resolve("Success").then(function(value) {
     console.log(value); // "Success"
   }, function(value) {
-    // not called
+    // 未被调用
   });
   var p = Promise.resolve([1,2,3]);
   p.then(function(v) {
@@ -209,7 +211,7 @@ created by other libraries.
 
 ###[Promise_prototype_catch] Promise.prototype.catch(onRejected)
 
-Equivalent to calling `Promise.prototype.then(undefined, onRejected)`
+等同于 `Promise.prototype.then(undefined, onRejected)`
 
 :js-example
   var p1 = new Promise(function(resolve, reject) {
@@ -237,17 +239,15 @@ Equivalent to calling `Promise.prototype.then(undefined, onRejected)`
 
 ###[Promise_prototype_done] Promise.prototype.done(onFulfilled, onRejected) @non-standard
 
-Calls `onFulfilled` or `onRejected` with the fulfillment value or
-rejection reason of the promise (as appropriate).
+参数：
+  1. onFulfilled promise 执行成功时被调用，且将执行结果做为参数传入
+  2. onRejected promise 执行出现异常时呗调用，会将异常做为参数传入
 
-Unlike `Promise.prototype.then` it does not return a Promise.  It will also throw any
-errors that occur in the next tick, so they are not silenced.  In node.js they will then
-crash your process (so it can be restarted in a clean state).  In browsers, this will cause
-the error to be properly logged.
+不像 `Promise.prototype.then`，它并不返回一个 Promise。如果有错误的话，它并不会像 promise 一样捕获（catch）错误，而会在下次函数执行时抛出（throw）错误。在 node.js 中，这会使线程崩溃（以便于以一个新状态重启）；在浏览器端，错误会在 console 合理地中显示出来。
 
-Note that `promise.done` has not been standardised. It is supported by most
-major promise libraries though, and is useful for avoiding silencing errors by accident.
-I recommend using it with the following polyfill (#[a(href="/polyfills/promise-done-" + versions.promise + ".min.js") minified] / #[a(href="/polyfills/promise-done-" + versions.promise + ".js") unminified]):
+值得注意的是，`promise.done`并未被标准化。然而这个方法被大多数 promise 库支持，也有助于避免在意外情况下遗漏或未能捕获抛出的异常。
+
+我推荐使用以下 polyfill (#[a(href="/polyfills/promise-done-" + versions.promise + ".min.js") minified] / #[a(href="/polyfills/promise-done-" + versions.promise + ".js") unminified]):
 
 :html
   <script src="https://www.promisejs.org/polyfills/promise-done-#{versions.promise}.min.js"></script>
@@ -261,7 +261,7 @@ I recommend using it with the following polyfill (#[a(href="/polyfills/promise-d
   });
 
   p.done(function (value) {
-    throw new Error('Ooops!'); // thrown in next tick
+    throw new Error('Ooops!'); // 在下一次执行中被抛出
   });
 
 :js-polyfill
@@ -276,8 +276,11 @@ I recommend using it with the following polyfill (#[a(href="/polyfills/promise-d
 
 ###[Promise_prototype_finally] Promise.prototype.finally(onResolved) @non-standard
 
-Some promise libraries implement a (non-standard) `.finally` method.  It takes a function,
-which it calls whenever the promise is fulfilled or rejected.  It can be pollyfilled with:
+一些 promise 库实现了一个（未被标准化的）`.finally` 方法。
+
+参数：
+
+  1. 它接受一个函数作为参数。无论最终 promise 被 fulfill 还是 rejected，这个函数都会被调用。
 
 :js-example
   var Promise = require('promise');
